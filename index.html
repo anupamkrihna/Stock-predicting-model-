@@ -20,12 +20,21 @@
             </div>
         </header>
 
-        <div class="mb-8 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
-            <label for="stockSearch" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Search Framework Matrix</label>
+        <div class="mb-4 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
+            <label for="stockSearch" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Natural Search Matrix</label>
             <div class="relative">
-                <input type="text" id="stockSearch" onkeyup="filterStockTable()" placeholder="Type ticker code (e.g., ITC.NS, IOC.NS)..." 
+                <input type="text" id="stockSearch" oninput="filterStockTable()" placeholder="Type stock name to search (e.g., ITC, IOC, RELIANCE)..." 
                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono transition-colors">
             </div>
+        </div>
+
+        <div id="searchSuggestions" class="hidden mb-8 bg-indigo-950 p-5 rounded-xl border-2 border-indigo-500 shadow-xl transition-all animate-fade-in">
+            <p class="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-3 flex items-center">
+                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-2 animate-ping"></span>
+                Matching Option Detected! Please choose a stock to load analysis:
+            </p>
+            <div id="suggestionsList" class="flex flex-wrap gap-2">
+                </div>
         </div>
 
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden mb-8">
@@ -36,7 +45,7 @@
                 <table class="w-full text-left border-collapse" id="quantTable">
                     <thead>
                         <tr class="bg-slate-900 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-700">
-                            <th class="p-4">Ticker Namespace</th>
+                            <th class="p-4">Stock Ticker</th>
                             <th class="p-4">Last Close</th>
                             <th class="p-4">GARCH Vol</th>
                             <th class="p-4">MC Risk Boundary (1-Day)</th>
@@ -94,13 +103,12 @@
                 
                 buildMetricsTable(globalData.stocks);
                 
-                // Pick the first stock in the list as the default focus view on page load
                 const firstTicker = Object.keys(globalData.stocks)[0];
                 if (firstTicker) {
                     renderFocusedStockView(firstTicker);
                 }
             } catch (error) {
-                console.error("Critical telemetry structural crash reading JSON data repository:", error);
+                console.error("Critical data telemetry structure error reading JSON repository:", error);
             }
         }
 
@@ -114,12 +122,15 @@
                 const badgeColor = s.signal === 'BULLISH EDGE' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' : 
                                    s.signal === 'BEARISH EDGE' ? 'bg-rose-950 text-rose-300 border-rose-800' : 'bg-slate-700 text-slate-300 border-slate-600';
 
+                // Naturalize Ticker Name by stripping out the .NS suffix
+                const naturalName = ticker.replace('.NS', '');
+
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-750 transition-colors cursor-pointer border-b border-slate-700/50 group";
                 row.onclick = () => renderFocusedStockView(ticker);
                 
                 row.innerHTML = `
-                    <td class="p-4 font-bold text-indigo-400 group-hover:text-indigo-300 font-mono">${ticker}</td>
+                    <td class="p-4 font-bold text-indigo-400 group-hover:text-indigo-300 font-mono" data-fullticker="${ticker}">${naturalName}</td>
                     <td class="p-4 font-semibold text-white">₹${s.current_price}</td>
                     <td class="p-4 text-amber-400">${s.garch_volatility}%</td>
                     <td class="p-4 text-xs text-slate-400">₹${s.mc_lower} - ₹${s.mc_upper}</td>
@@ -137,14 +148,14 @@
             const stock = globalData.stocks[ticker];
             if (!stock) return;
 
-            // Highlight tracking element configurations
-            document.getElementById('active-ticker').innerText = ticker;
+            const naturalName = ticker.replace('.NS', '');
+
+            document.getElementById('active-ticker').innerText = naturalName;
             document.getElementById('garch-vol').innerText = `${stock.garch_volatility}%`;
             document.getElementById('mc-high').innerText = `₹${stock.mc_upper}`;
             document.getElementById('mc-low').innerText = `₹${stock.mc_lower}`;
             document.getElementById('lstm-pred').innerText = `₹${stock.lstm_prediction}`;
 
-            // Chart reconstruction safety routine (kills old instance to prevent overlay glitches)
             const ctx = document.getElementById('predictionChart').getContext('2d');
             if (activeChartInstance) {
                 activeChartInstance.destroy();
@@ -156,7 +167,7 @@
                     labels: stock.historical_dates,
                     datasets: [
                         {
-                            label: `${ticker} Market Close Price`,
+                            label: `${naturalName} Market Close Price`,
                             data: stock.historical_prices,
                             borderColor: '#818cf8',
                             borderWidth: 3,
@@ -186,20 +197,58 @@
             });
         }
 
+        // NATURAL SEARCH & INTERACTIVE CHOICE LOGIC ENGINE
         function filterStockTable() {
-            const input = document.getElementById('stockSearch').value.toUpperCase();
+            const input = document.getElementById('stockSearch').value.toUpperCase().trim();
             const rows = document.getElementById('tableBody').getElementsByTagName('tr');
+            const suggestionsDiv = document.getElementById('searchSuggestions');
+            const suggestionsList = document.getElementById('suggestionsList');
+            
+            // Wipe out older choice buttons
+            suggestionsList.innerHTML = "";
+            let matchCount = 0;
+            let matchedTickers = [];
             
             for (let i = 0; i < rows.length; i++) {
                 const tickerCell = rows[i].getElementsByTagName('td')[0];
                 if (tickerCell) {
-                    const txtValue = tickerCell.textContent || tickerCell.innerText;
-                    if (txtValue.toUpperCase().indexOf(input) > -1) {
-                        rows[i].style.display = "";
+                    const fullTicker = tickerCell.getAttribute('data-fullticker');
+                    const rowText = rows[i].textContent || rows[i].innerText;
+                    
+                    if (rowText.toUpperCase().includes(input)) {
+                        rows[i].style.setProperty('display', '', 'important');
+                        if (input.length > 0) {
+                            matchCount++;
+                            matchedTickers.push(fullTicker);
+                        }
                     } else {
-                        rows[i].style.display = "none";
+                        rows[i].style.setProperty('display', 'none', 'important');
                     }
                 }
+            }
+
+            // If options match the search string, pop open the explicit choice menu
+            if (input.length > 0 && matchCount > 0) {
+                suggestionsDiv.classList.remove('hidden');
+                
+                matchedTickers.forEach(ticker => {
+                    const cleanName = ticker.replace('.NS', '');
+                    
+                    const btn = document.createElement('button');
+                    btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-mono px-4 py-2 rounded-lg text-xs tracking-wide transition-all shadow-md active:scale-95 border border-indigo-400";
+                    btn.innerText = `Load ${cleanName} Analysis`;
+                    
+                    // Clicking the choice updates the dashboard views instantly
+                    btn.onclick = () => {
+                        renderFocusedStockView(ticker);
+                        document.getElementById('stockSearch').value = cleanName;
+                        filterStockTable(); // Clean-up collapse loop
+                    };
+                    
+                    suggestionsList.appendChild(btn);
+                });
+            } else {
+                suggestionsDiv.classList.add('hidden');
             }
         }
 
