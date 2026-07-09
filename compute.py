@@ -11,9 +11,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
 # --- CONFIGURATION ---
-# Add any Yahoo Finance tickers you want to track here!
 STOCK_TICKERS = ["ITC.NS", "IOC.NS", "RELIANCE.NS", "TCS.NS", "SBIN.NS", "INFY.NS"]
-MACRO_TICKER = "^NSEI"        # Nifty 50 Index as the macroeconomic landscape
+MACRO_TICKER = "^NSEI"        # Nifty 50 Index as our macroscopic landscape
 LOOKBACK_DAYS = 365 * 3       # 3 years of historical data
 
 def run_prediction_pipeline():
@@ -22,11 +21,14 @@ def run_prediction_pipeline():
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=LOOKBACK_DAYS)
     
-    # Pre-fetch macro data to save time
+    # 1. FETCH AND CLEAN MACRO DATA
     print(f"🌐 Fetching Macro Index: {MACRO_TICKER}")
     macro_raw = yf.download(MACRO_TICKER, start=start_date, end=end_date)
     if isinstance(macro_raw.columns, pd.MultiIndex):
         macro_raw.columns = macro_raw.columns.get_level_values(0)
+    
+    # FORCE TIMEZONE REMOVAL FOR MACRO INDEX
+    macro_raw.index = pd.to_datetime(macro_raw.index).tz_localize(None)
         
     master_output = {
         "update_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -45,13 +47,20 @@ def run_prediction_pipeline():
             if isinstance(stock_raw.columns, pd.MultiIndex):
                 stock_raw.columns = stock_raw.columns.get_level_values(0)
 
-            # Synchronize dataframes
+            # FORCE TIMEZONE REMOVAL FOR INDIVIDUAL STOCK
+            stock_raw.index = pd.to_datetime(stock_raw.index).tz_localize(None)
+
+            # Synchronize dataframes using timezone-naive indices
             df = pd.DataFrame(index=stock_raw.index)
             df['Stock_Close'] = stock_raw['Close']
             df['Stock_Volume'] = stock_raw['Volume']
             df['Macro_Close'] = macro_raw['Close']
             df = df.dropna()
             
+            if df.empty:
+                print(f"⚠️ Dataframe alignment resulted in 0 rows for {ticker}. Skipping.")
+                continue
+
             df['Stock_Return'] = df['Stock_Close'].pct_change()
             df['Macro_Return'] = df['Macro_Close'].pct_change()
             df = df.dropna()
@@ -118,11 +127,9 @@ def run_prediction_pipeline():
             tomorrow_baseline = reg_model.predict(tomorrow_macro)[0]
             final_lstm_prediction = float(tomorrow_baseline + pred_residual)
 
-            # Calculate Expected Return Direction Edge
             edge_pct = ((final_lstm_prediction - current_price) / current_price) * 100
             signal = "BULLISH EDGE" if edge_pct > 0.5 else "BEARISH EDGE" if edge_pct < -0.5 else "NEUTRAL"
 
-            # Package individual stock statistics
             recent_history = df.tail(30)
             master_output["stocks"][ticker] = {
                 "current_price": round(current_price, 2),
