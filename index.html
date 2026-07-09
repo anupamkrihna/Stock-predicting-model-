@@ -10,6 +10,13 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
 
     <div class="container mx-auto px-4 py-8 max-w-6xl">
+        
+        <div id="error-box" class="hidden bg-rose-950 text-rose-300 p-6 rounded-xl border-2 border-rose-500 mb-8 font-mono text-sm shadow-2xl">
+            <h3 class="text-lg font-bold text-rose-400 mb-2">⚠️ System Error Detected</h3>
+            <p id="error-message" class="mb-4"></p>
+            <p class="text-xs text-slate-400">Troubleshooting tip: Make sure predictions.json was uploaded completely and that you are viewing this via your live GitHub Pages link, not as a local file.</p>
+        </div>
+
         <header class="border-b border-slate-700 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 class="text-3xl font-extrabold text-indigo-400 tracking-tight">Layered Quant Framework</h1>
@@ -33,8 +40,7 @@
                 <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-2 animate-ping"></span>
                 Matching Option Detected! Click choice or press ENTER to load analysis:
             </p>
-            <div id="suggestionsList" class="flex flex-wrap gap-2">
-                </div>
+            <div id="suggestionsList" class="flex flex-wrap gap-2"></div>
         </div>
 
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden mb-8">
@@ -54,8 +60,7 @@
                             <th class="p-4 text-center">Action Framework</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-700 text-sm font-mono" id="tableBody">
-                        </tbody>
+                    <tbody class="divide-y divide-slate-700 text-sm font-mono" id="tableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -94,13 +99,33 @@
         let globalData = {};
         let activeChartInstance = null;
 
+        function showVisualError(err) {
+            const box = document.getElementById('error-box');
+            const msg = document.getElementById('error-message');
+            msg.innerText = err.toString();
+            box.classList.remove('hidden');
+            document.getElementById('update-timestamp').innerText = "System Sync Failed";
+        }
+
         async function initializeDashboard() {
             try {
                 const response = await fetch('predictions.json');
-                globalData = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP Error Status ${response.status}: Could not load predictions.json. Verify the file exists in your repository root folder.`);
+                }
+                
+                try {
+                    globalData = await response.json();
+                } catch (jsonErr) {
+                    throw new Error(`JSON Formatting Syntax Error: The data file 'predictions.json' contains invalid code formatting or was cut off during copy-paste. Detailed reason: ${jsonErr.message}`);
+                }
                 
                 document.getElementById('update-timestamp').innerText = `System Data Sync: ${globalData.update_date}`;
                 
+                if (!globalData.stocks || Object.keys(globalData.stocks).length === 0) {
+                    throw new Error("Data Integrity Error: The predictions.json file loaded successfully, but it does not contain any calculated stock parameters inside the array.");
+                }
+
                 buildMetricsTable(globalData.stocks);
                 
                 const firstTicker = Object.keys(globalData.stocks)[0];
@@ -108,7 +133,8 @@
                     renderFocusedStockView(firstTicker);
                 }
             } catch (error) {
-                console.error("Critical data telemetry structure error reading JSON repository:", error);
+                console.error(error);
+                showVisualError(error);
             }
         }
 
@@ -144,56 +170,60 @@
         }
 
         function renderFocusedStockView(ticker) {
-            const stock = globalData.stocks[ticker];
-            if (!stock) return;
+            try {
+                const stock = globalData.stocks[ticker];
+                if (!stock) return;
 
-            const naturalName = ticker.replace('.NS', '');
+                const naturalName = ticker.replace('.NS', '');
 
-            document.getElementById('active-ticker').innerText = naturalName;
-            document.getElementById('garch-vol').innerText = `${stock.garch_volatility}%`;
-            document.getElementById('mc-high').innerText = `₹${stock.mc_upper}`;
-            document.getElementById('mc-low').innerText = `₹${stock.mc_lower}`;
-            document.getElementById('lstm-pred').innerText = `₹${stock.lstm_prediction}`;
+                document.getElementById('active-ticker').innerText = naturalName;
+                document.getElementById('garch-vol').innerText = `${stock.garch_volatility}%`;
+                document.getElementById('mc-high').innerText = `₹${stock.mc_upper}`;
+                document.getElementById('mc-low').innerText = `₹${stock.mc_lower}`;
+                document.getElementById('lstm-pred').innerText = `₹${stock.lstm_prediction}`;
 
-            const ctx = document.getElementById('predictionChart').getContext('2d');
-            if (activeChartInstance) {
-                activeChartInstance.destroy();
-            }
-
-            activeChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: stock.historical_dates,
-                    datasets: [
-                        {
-                            label: `${naturalName} Market Close Price`,
-                            data: stock.historical_prices,
-                            borderColor: '#818cf8',
-                            borderWidth: 3,
-                            pointRadius: 1.5,
-                            fill: false
-                        },
-                        {
-                            label: 'Macro Landscape Baseline Trend',
-                            data: stock.macro_baseline,
-                            borderColor: '#f59e0b',
-                            borderDash: [5, 5],
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#cbd5e1' } } },
-                    scales: {
-                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
-                    }
+                const ctx = document.getElementById('predictionChart').getContext('2d');
+                if (activeChartInstance) {
+                    activeChartInstance.destroy();
                 }
-            });
+
+                activeChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: stock.historical_dates,
+                        datasets: [
+                            {
+                                label: `${naturalName} Market Close Price`,
+                                data: stock.historical_prices,
+                                borderColor: '#818cf8',
+                                borderWidth: 3,
+                                pointRadius: 1.5,
+                                fill: false
+                            },
+                            {
+                                label: 'Macro Landscape Baseline Trend',
+                                data: stock.macro_baseline,
+                                borderColor: '#f59e0b',
+                                borderDash: [5, 5],
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#cbd5e1' } } },
+                        scales: {
+                            x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            } catch (err) {
+                showVisualError("Chart Render Error: " + err.message);
+            }
         }
 
         function filterStockTable() {
@@ -230,8 +260,7 @@
                 matchedTickers.forEach(ticker => {
                     const cleanName = ticker.replace('.NS', '');
                     const btn = document.createElement('button');
-                    btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-mono px-4 py-2 rounded-lg text-xs tracking-wide transition-all shadow-md active:scale-95 border border-indigo-400 selection-btn";
-                    btn.setAttribute('data-ticker', ticker);
+                    btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-mono px-4 py-2 rounded-lg text-xs tracking-wide transition-all shadow-md active:scale-95 border border-indigo-400";
                     btn.innerText = `Load ${cleanName} Analysis`;
                     
                     btn.onclick = () => {
@@ -247,16 +276,12 @@
             }
         }
 
-        // NEW KEYPRESS DETECTOR ENGINE
         function handleSearchKeyPress(event) {
-            // Checks if the user explicitly hit the "Enter" key
             if (event.key === 'Enter') {
-                event.preventDefault(); // Stop webpage from refreshing
-                
-                // Selects the first available choice button from the suggestion window
+                event.preventDefault();
                 const firstAvailableButton = document.querySelector('#suggestionsList button');
                 if (firstAvailableButton) {
-                    firstAvailableButton.click(); // Trigger the click command automatically!
+                    firstAvailableButton.click();
                 }
             }
         }
