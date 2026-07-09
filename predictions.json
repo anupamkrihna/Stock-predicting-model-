@@ -1,11 +1,11 @@
 {
     "ticker": "ITC.NS",
-    "update_date": "2026-07-09 06:56",
+    "update_date": "2026-07-09 08:01",
     "current_price": 280.65,
     "garch_volatility": 1.46,
-    "mc_upper": 287.07,
-    "mc_lower": 274.07,
-    "lstm_prediction": 282.31,
+    "mc_upper": 287.26,
+    "mc_lower": 273.72,
+    "lstm_prediction": 285.32,
     "historical_dates": [
         "2026-05-26",
         "2026-05-27",
