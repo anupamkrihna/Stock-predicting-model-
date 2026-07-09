@@ -3,48 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Layered Quant Predictive Model</title>
+    <title>Layered Quant Predictive Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
 
     <div class="container mx-auto px-4 py-8 max-w-6xl">
-        <header class="border-b border-slate-700 pb-6 mb-8 flex justify-between items-center">
+        <header class="border-b border-slate-700 pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 class="text-3xl font-extrabold text-indigo-400 tracking-tight">Layered Quant Structure</h1>
-                <p class="text-slate-400 text-sm mt-1">GARCH ➔ Monte Carlo ➔ Multiple Regression ➔ LSTM Engine</p>
+                <h1 class="text-3xl font-extrabold text-indigo-400 tracking-tight">Layered Quant Framework</h1>
+                <p class="text-slate-400 text-sm mt-1">Multi-Model Pipeline Architecture (GARCH ➔ Monte Carlo ➔ Regression ➔ LSTM)</p>
             </div>
-            <div class="text-right">
-                <span class="bg-indigo-900 text-indigo-300 text-xs px-3 py-1.5 rounded-full font-mono uppercase" id="ticker-badge">Loading...</span>
-                <p class="text-xs text-slate-500 mt-2" id="update-timestamp">Updated: --</p>
+            <div class="text-left md:text-right">
+                <p class="text-xs text-slate-500" id="update-timestamp">Updated: Loading...</p>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Last Closed Price</p>
-                <p class="text-3xl font-bold text-white mt-2 font-mono" id="current-price">₹--</p>
+        <div class="mb-8 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
+            <label for="stockSearch" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Search Framework Matrix</label>
+            <div class="relative">
+                <input type="text" id="stockSearch" onkeyup="filterStockTable()" placeholder="Type ticker code (e.g., ITC.NS, IOC.NS)..." 
+                       class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono transition-colors">
             </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden mb-8">
+            <div class="p-4 bg-slate-750 border-b border-slate-700">
+                <h2 class="text-md font-bold text-slate-200">System Screener Results Matrix</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="quantTable">
+                    <thead>
+                        <tr class="bg-slate-900 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-700">
+                            <th class="p-4">Ticker Namespace</th>
+                            <th class="p-4">Last Close</th>
+                            <th class="p-4">GARCH Vol</th>
+                            <th class="p-4">MC Risk Boundary (1-Day)</th>
+                            <th class="p-4">LSTM Predictor</th>
+                            <th class="p-4">Model Edge</th>
+                            <th class="p-4 text-center">Action Framework</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700 text-sm font-mono" id="tableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-800 pt-6 mb-4 flex items-center justify-between">
+            <h2 class="text-xl font-bold text-indigo-300">Active View Focus Area: <span id="active-ticker" class="text-white font-mono bg-indigo-950 px-3 py-1 rounded-md border border-indigo-800">--</span></h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Predictive GARCH Risk</p>
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Predictive GARCH Risk Profile</p>
                 <p class="text-3xl font-bold text-amber-400 mt-2 font-mono" id="garch-vol">--%</p>
             </div>
             <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Monte Carlo Risk Envelope (1-Day)</p>
+                <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Monte Carlo Boundaries</p>
                 <p class="text-sm font-medium text-slate-300 mt-2">
-                    Upper Boundary: <span class="text-emerald-400 font-mono font-bold" id="mc-high">₹--</span><br>
-                    Lower Boundary (VaR): <span class="text-rose-400 font-mono font-bold" id="mc-low">₹--</span>
+                    Upper Cap (95%): <span class="text-emerald-400 font-bold" id="mc-high">₹--</span><br>
+                    Lower floor (5% VaR): <span class="text-rose-400 font-bold" id="mc-low">₹--</span>
                 </p>
             </div>
             <div class="bg-indigo-950 p-6 rounded-xl border border-indigo-700 shadow-xl">
-                <p class="text-indigo-300 text-xs font-semibold uppercase tracking-wider">LSTM Next-Day Prediction</p>
+                <p class="text-indigo-300 text-xs font-semibold uppercase tracking-wider">LSTM Structural Target</p>
                 <p class="text-3xl font-bold text-emerald-400 mt-2 font-mono" id="lstm-pred">₹--</p>
             </div>
         </div>
 
         <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl mb-6">
-            <h2 class="text-lg font-bold text-slate-200 mb-4">Historical Actuals vs. Macro Landscape Regression Baseline</h2>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Historical Actual Close vs. Macro Regression Baseline</h3>
             <div class="relative h-96 w-full">
                 <canvas id="predictionChart"></canvas>
             </div>
@@ -52,66 +82,128 @@
     </div>
 
     <script>
-        async function loadDashboardData() {
+        let globalData = {};
+        let activeChartInstance = null;
+
+        async function initializeDashboard() {
             try {
-                // Fetches data directly from your auto-generated json file
                 const response = await fetch('predictions.json');
-                const data = await response.json();
-
-                // Assign text tokens onto DOM metrics layout
-                document.getElementById('ticker-badge').innerText = data.ticker;
-                document.getElementById('update-timestamp').innerText = `Updated: ${data.update_date}`;
-                document.getElementById('current-price').innerText = `₹${data.current_price}`;
-                document.getElementById('garch-vol').innerText = `${data.garch_volatility}%`;
-                document.getElementById('mc-high').innerText = `₹${data.mc_upper}`;
-                document.getElementById('mc-low').innerText = `₹${data.mc_lower}`;
-                document.getElementById('lstm-pred').innerText = `₹${data.lstm_prediction}`;
-
-                // Setup Chart visual frame elements
-                const ctx = document.getElementById('predictionChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.historical_dates,
-                        datasets: [
-                            {
-                                label: 'Actual Market Closing Price',
-                                data: data.historical_prices,
-                                borderColor: '#818cf8',
-                                borderWidth: 3,
-                                pointRadius: 2,
-                                fill: false
-                            },
-                            {
-                                label: 'Macro Regression Structural Baseline',
-                                data: data.macro_baseline,
-                                borderColor: '#f59e0b',
-                                borderDash: [5, 5],
-                                borderWidth: 2,
-                                pointRadius: 0,
-                                fill: false
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { labels: { color: '#cbd5e1' } }
-                        },
-                        scales: {
-                            x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
-                        }
-                    }
-                });
-
+                globalData = await response.json();
+                
+                document.getElementById('update-timestamp').innerText = `System Data Sync: ${globalData.update_date}`;
+                
+                buildMetricsTable(globalData.stocks);
+                
+                // Pick the first stock in the list as the default focus view on page load
+                const firstTicker = Object.keys(globalData.stocks)[0];
+                if (firstTicker) {
+                    renderFocusedStockView(firstTicker);
+                }
             } catch (error) {
-                console.error("Error loading JSON dataset parameters:", error);
+                console.error("Critical telemetry structural crash reading JSON data repository:", error);
             }
         }
 
-        window.onload = loadDashboardData;
+        function buildMetricsTable(stocks) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = "";
+            
+            Object.keys(stocks).forEach(ticker => {
+                const s = stocks[ticker];
+                const edgeColor = s.edge_percent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                const badgeColor = s.signal === 'BULLISH EDGE' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' : 
+                                   s.signal === 'BEARISH EDGE' ? 'bg-rose-950 text-rose-300 border-rose-800' : 'bg-slate-700 text-slate-300 border-slate-600';
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-750 transition-colors cursor-pointer border-b border-slate-700/50 group";
+                row.onclick = () => renderFocusedStockView(ticker);
+                
+                row.innerHTML = `
+                    <td class="p-4 font-bold text-indigo-400 group-hover:text-indigo-300 font-mono">${ticker}</td>
+                    <td class="p-4 font-semibold text-white">₹${s.current_price}</td>
+                    <td class="p-4 text-amber-400">${s.garch_volatility}%</td>
+                    <td class="p-4 text-xs text-slate-400">₹${s.mc_lower} - ₹${s.mc_upper}</td>
+                    <td class="p-4 font-bold text-white">₹${s.lstm_prediction}</td>
+                    <td class="p-4 font-bold ${edgeColor}">${s.edge_percent}%</td>
+                    <td class="p-4 text-center">
+                        <span class="px-2.5 py-1 text-xs font-bold rounded-md border ${badgeColor}">${s.signal}</span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderFocusedStockView(ticker) {
+            const stock = globalData.stocks[ticker];
+            if (!stock) return;
+
+            // Highlight tracking element configurations
+            document.getElementById('active-ticker').innerText = ticker;
+            document.getElementById('garch-vol').innerText = `${stock.garch_volatility}%`;
+            document.getElementById('mc-high').innerText = `₹${stock.mc_upper}`;
+            document.getElementById('mc-low').innerText = `₹${stock.mc_lower}`;
+            document.getElementById('lstm-pred').innerText = `₹${stock.lstm_prediction}`;
+
+            // Chart reconstruction safety routine (kills old instance to prevent overlay glitches)
+            const ctx = document.getElementById('predictionChart').getContext('2d');
+            if (activeChartInstance) {
+                activeChartInstance.destroy();
+            }
+
+            activeChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: stock.historical_dates,
+                    datasets: [
+                        {
+                            label: `${ticker} Market Close Price`,
+                            data: stock.historical_prices,
+                            borderColor: '#818cf8',
+                            borderWidth: 3,
+                            pointRadius: 1.5,
+                            fill: false
+                        },
+                        {
+                            label: 'Macro Landscape Baseline Trend',
+                            data: stock.macro_baseline,
+                            borderColor: '#f59e0b',
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#cbd5e1' } } },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function filterStockTable() {
+            const input = document.getElementById('stockSearch').value.toUpperCase();
+            const rows = document.getElementById('tableBody').getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const tickerCell = rows[i].getElementsByTagName('td')[0];
+                if (tickerCell) {
+                    const txtValue = tickerCell.textContent || tickerCell.innerText;
+                    if (txtValue.toUpperCase().indexOf(input) > -1) {
+                        rows[i].style.display = "";
+                    } else {
+                        rows[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        window.onload = initializeDashboard;
     </script>
 </body>
 </html>
